@@ -1,33 +1,22 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
-import scipy.fft as fft
 from scipy.io import wavfile
 
 def db_to_linear(db):
     return 10**(db/20)
 
-def linear_to_db(linear):
-    return 20 * np.log10(linear)
-
-def N_calc(omega_c, target_gain):
+def N_calc(wc, target_gain):
     N = 0
     gain = 1
     print("target_gain:", target_gain)
     while gain > target_gain:
         N += 1
-        gain = np.abs( (1/N) * (np.sin(N*omega_c/2) / np.sin(omega_c/2)) ) # 3-51 lyons
+        gain = np.abs( (1/N) * (np.sin(N*wc/2) / np.sin(wc/2)) ) # 3-51 lyons
     return N
 
-def hf_calc(fc, fe, N):
-    nf = np.arange(-N/2, N/2)
-    K = int(2 * N * fc/fe + 1)
-    hf = (1/N) * (np.sin(np.pi*nf*K/N) / np.sin(np.pi*nf/N)+1e-30)
-    return hf
-
-def get_enveloppe(audio_data, N):
-    hf = np.ones(N+1) / (N+1)
-    enveloppe = np.convolve(np.abs(audio_data), hf, mode='same')
+def get_enveloppe(audio_data, filtre):
+    enveloppe = np.convolve(np.abs(audio_data), filtre, mode='same')
     return enveloppe / np.max(enveloppe)
 
 def analyse_freq(audio_data, fe):
@@ -76,7 +65,9 @@ def get_sound(harmonic, phases, fe, fondamental, enveloppe, duration):
         freq_harmonic = (n+1) * fondamental
         signal_synth += harmonic[n] * np.sin(2 * np.pi * freq_harmonic * t + phases[n])
 
-    signal_synth *= enveloppe[:len(signal_synth)]
+    envelope_resampled = signal.resample(enveloppe, len(signal_synth))
+    
+    signal_synth *= envelope_resampled
     signal_synth *= np.hamming(len(signal_synth))
 
     return signal_synth
