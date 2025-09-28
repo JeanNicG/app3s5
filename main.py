@@ -17,8 +17,7 @@ fc  = np.pi / 1000
 N = sf.N_calc(fc , target_gain)
 print("Ordre N du filtre:", N)
 
-hf = sf.hf_calc(fc, fe, N)
-enveloppe = sf.get_enveloppe(audio_data, hf)
+enveloppe = sf.get_enveloppe(audio_data, N)
 
 audio_data = audio_data / np.max(audio_data)
 
