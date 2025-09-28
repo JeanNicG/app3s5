@@ -13,11 +13,12 @@ audio_data_abs = np.abs(audio_data)
 # 2.Conception d'un filtre passe-bas RIF
 target_gain_db = -3
 target_gain = sf.db_to_linear(target_gain_db)
-frequenceCoupure  = np.pi / 1000
-N = sf.N_calc(frequenceCoupure , target_gain)
+fc  = np.pi / 1000
+N = sf.N_calc(fc , target_gain)
 print("Ordre N du filtre:", N)
 
-enveloppe = sf.get_enveloppe(audio_data, N)
+hf = sf.hf_calc(fc, fe, N)
+enveloppe = sf.get_enveloppe(audio_data, hf)
 
 audio_data = audio_data / np.max(audio_data)
 
@@ -25,11 +26,6 @@ fondamental, harmonic, phases = sf.analyse_freq(audio_data, fe)
 print("Fréquence fondamentale:", fondamental)
 
 note_dict = sf.note_dict(fondamental)
-
-print(f"SOL frequency: {note_dict['SOL']} Hz")
-print(f"MI frequency: {note_dict['MI']} Hz")
-print(f"FA frequency: {note_dict['FA']} Hz")
-print(f"RE frequency: {note_dict['RE']} Hz")
 
 #sf.create_wav_sound(harmonic, phases, fe, note_dict["SOL"], enveloppe, 4, "sol.wav")
 #sf.create_wav_sound(harmonic, phases, fe, note_dict["MI"], enveloppe, 4, "mi.wav")

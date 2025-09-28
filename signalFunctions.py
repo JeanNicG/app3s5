@@ -19,20 +19,15 @@ def N_calc(omega_c, target_gain):
         gain = (1/N) * (np.sin(N*omega_c/2) /np.sin(omega_c/2)) # 3-51 lyons
     return N
 
-def h_calc(N, omega_c):
-    K = N*omega_c/np.pi + 1
-    h = np.zeros(N)
-    h[0] = 1/N
-    k = 0
-    for k in range(1, N):
-        h[k] = (1/N) * (np.sin(np.pi*k*K/N) / np.sin(np.pi*k/N))
-    return h
+def hf_calc(fc, fe, N):
+    nf = np.arange(-N/2, N/2)
+    K = int(2 * N * fc/fe + 1)
+    hf = (1/N) * (np.sin(np.pi*nf*K/N) / np.sin(np.pi*nf/N)+1e-30)
+    return hf
 
-def get_enveloppe(audio_data, N_filtre):
-    filtre = np.ones(N_filtre)/N_filtre
-    enveloppe = np.convolve(audio_data, filtre)
-    enveloppe = enveloppe / np.max(enveloppe)
-    return enveloppe
+def get_enveloppe(audio_data, hf):
+    enveloppe = np.convolve(np.abs(audio_data), hf)
+    return enveloppe / np.max(enveloppe)
 
 def analyse_freq(audio_data, fe):
     audio_data_temporel = np.fft.fft(audio_data)
@@ -50,7 +45,7 @@ def analyse_freq(audio_data, fe):
     harmonic = [np.abs(audio_data_temporel[i]) for i in range(0, 32)]
     phases = [np.angle(audio_data_temporel[i]) for i in range(0, 32)]
     
-    return abs(fondamental), harmonic, phases
+    return fondamental, harmonic, phases
 
 def note_dict(la_d):
     note_freq_dict = { 
@@ -71,24 +66,18 @@ def note_dict(la_d):
 
 def get_sound(harmonic, phases, fe, fondamental, enveloppe, duration):
     print("get_sound:", fondamental)
-    t = np.linspace(0, duration, int(fe*duration))
+    t = np.linspace(0, duration, int(fe * duration))
     signal_synth = []
     
-    # Use vectorized computation instead of loops
     for dt in t:
         val = 0
-        for n in range(1, len(harmonic)):
-            val += harmonic[n] * np.sin(2 * np.pi * n * fondamental * t - phases[n])
+        for n in range(len(harmonic)):
+            val += harmonic[n] * np.sin(2 * np.pi * n * fondamental * dt + phases[n])
         signal_synth.append(val)
 
-    # Resample envelope to match signal length
-    x_original = np.linspace(0, 1, len(enveloppe))
-    x_new = np.linspace(0, 1, len(signal_synth))
-    enveloppe_resampled = np.interp(x_new, x_original, enveloppe)
-    
-    # Apply envelope by multiplication
-    signal_synth = signal_synth * enveloppe_resampled
-    
+    signal_synth = np.multiply(signal_synth, enveloppe[0:len(signal_synth)])
+    signal_synth = np.multiply(signal_synth, np.hamming(len(signal_synth)))
+
     return signal_synth
 
 def get_silence(fe, duration):
@@ -97,13 +86,13 @@ def get_silence(fe, duration):
     return silence
 
 def composition_bethoven(harmonic, phases, fe, enveloppe, note_dict):
-    sol = get_sound(harmonic, phases, fe, note_dict["SOL"], enveloppe, 0.25)
+    sol = get_sound(harmonic, phases, fe, note_dict["SOL"], enveloppe, 0.4)
     mi = get_sound(harmonic, phases, fe, note_dict["MI"], enveloppe, 1)
-    fa = get_sound(harmonic, phases, fe, note_dict["FA"], enveloppe, 0.25)
+    fa = get_sound(harmonic, phases, fe, note_dict["FA"], enveloppe, 0.4)
     re = get_sound(harmonic, phases, fe, note_dict["RE"], enveloppe, 1)
     
-    silence = get_silence(fe, 0.1)
-    silence1 = get_silence(fe, 0.5)
+    silence = get_silence(fe, 0.05)
+    silence1 = get_silence(fe, 0.3)
 
     musique = np.concatenate((
         sol, silence, 
@@ -117,7 +106,6 @@ def composition_bethoven(harmonic, phases, fe, enveloppe, note_dict):
     ))
     
     musique = np.int16(np.array(musique) / np.max(np.abs(musique)) * 32767)
-    
     wavfile.write("beethoven.wav", fe, musique)
     return musique
 
